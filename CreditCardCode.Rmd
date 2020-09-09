@@ -1,0 +1,32 @@
+---
+title: "Credit Card Data"
+author: "Jiali Chen"
+date: "9/9/2020"
+output: html_document
+---
+
+```{r}
+##This part is only to show how to get access to data through API . In my project the data can be directly downloaded
+#install.packages("devtools")
+library("devtools")
+devtools::install_packages("mkearney/kaggler")
+library(kaggler)
+setwd("/Users/jialichen/Desktop/ANLY-501")
+
+kaggle_username={"jich3155"}
+api_key={"39fdcc1e6d47586734d282cb6c7bcefe"}
+
+#get Kaggle datasets
+dataset <- kgl_datasets_list(search = 'Machine Learning Group - ULB')
+```
+
+```{r}
+library(dplyr)
+#read csv file
+creditdata <- read.csv("creditcard.csv")
+
+#pick the meaningful rows to show 
+selecteddata <- creditdata[, c(1, 2, 3, 28, 29, 30, 31)]
+cat("\n", "first 10 rows of raw dataframe", "\n")
+head(selecteddata, 10)
+```
