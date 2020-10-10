@@ -1,0 +1,154 @@
+---
+title: "R501Cluster"
+author: "Jiali Chen"
+date: "10/8/2020"
+output: html_document
+---
+
+```{r}
+library(NbClust)
+library(cluster)
+library(mclust)
+library(amap)  ## for Kmeans (notice the cap K)
+library(factoextra) ## for cluster vis, silhouette, etc.
+library(purrr)
+library(philentropy)  ## for distance() which offers 46 metrics
+## https://cran.r-project.org/web/packages/philentropy/vignettes/Distances.html
+library(SnowballC)
+#library(stylo)  ## for dist.cosine
+library(caTools)
+library(dplyr)
+library(textstem)
+library(stringr)
+library(wordcloud)
+library(tm) ## to read in corpus (text data)
+
+
+setwd("/Users/jialichen/Downloads")
+Record_DF_all<-read.csv("creditcard.csv")
+Record_DF<-Record_DF_all  ## make a copy
+
+```
+
+
+```{r}
+## Save the label
+Label <- Record_DF$Class
+## Remove the label from the dataset
+Record_DF <- Record_DF[ ,-c(31) ]
+
+
+Record_DF <- Record_DF[sample(nrow(Record_DF), 2000), ]
+
+## Create a normalized version of the DF
+Record_DF_Norm <- as.data.frame(apply(Record_DF[,1:30 ], 2, ##2 for col
+                                 function(x) (x - min(x))/(max(x)-min(x))))
+
+## Look at scaled distances
+Dist_norm<- dist(Record_DF_Norm, method = "minkowski", p=2) #Euclidean
+
+
+kmeans_1<-NbClust::NbClust(Record_DF_Norm, 
+                             min.nc=2, max.nc=5, method="kmeans")
+
+
+```
+
+```{r}
+barplot(table(kmeans_1$Best.n[1,]), 
+        xlab="Numer of clusters", ylab="Frequency among all indices",
+        main="Optimal number of clusters", col = "#0c4c8a")
+```
+
+```{r}
+# Elbow method
+#The Elbow method looks at the total within-cluster sum of square (WSS) as a function of the number of clusters
+fviz_nbclust(Record_DF_Norm, kmeans, k.max = 5, method = "wss")+labs(subtitle = "Elbow method")
+```
+
+```{r}
+#Silhouette method
+#The Silhouette method measures the quality of a clustering and determines how well each point lies within its cluster.
+fviz_nbclust(Record_DF_Norm, kmeans, k.max = 5, method = "silhouette")+labs(subtitle = "Silhouette method")
+```
+
+```{r}
+# Gap statistic
+fviz_nbclust(Record_DF_Norm, kmeans, k.max = 5, nstart = 25,  method = "gap_stat", nboot = 50)+labs(subtitle = "Gap statistic method")
+```
+
+```{r}
+#kmeans k=2,3,4
+model2 <- kmeans(Record_DF_Norm, centers = 2)
+Record_cluster <- data.frame(Record_DF_Norm,
+  cluster = as.factor(model2$cluster)
+)
+BSS2 <- model2$betweenss
+TSS2 <- model2$totss
+quality2<- BSS2 / TSS2 * 100
+
+model3 <- kmeans(Record_DF_Norm, centers = 3)
+BSS3 <- model3$betweenss
+TSS3 <- model3$totss
+quality3<- BSS3 / TSS3 * 100
+
+model4 <- kmeans(Record_DF_Norm, centers = 4)
+BSS4 <- model4$betweenss
+TSS4 <- model4$totss
+quality4<- BSS4 / TSS4 * 100
+
+```
+
+```{r}
+##hierarchical 
+#get best method 
+
+methods <- c( "average", "single", "complete", "ward")
+names(methods) <- c( "average", "single", "complete", "ward")
+
+####### ---->  function to compute coefficient-------
+MethodMeasures <- function(x) {
+  cluster::agnes(Record_DF_Norm, method = x)$ac
+}
+
+# The agnes() function will get the agglomerative coefficient (AC), 
+# which measures the amount of clustering structure found.
+# Get agglomerative coefficient for each linkage method - higher number is best
+(purrr::map_dbl(methods, MethodMeasures))
+```
+
+```{r}
+#due to large and high dimensionality 
+(HClust_Ward_Euc_N_3D <- hclust(Dist_norm, method = "ward.D" ))
+plot(HClust_Ward_Euc_N_3D, cex=0.9, hang=-1, main = "Euclidean")
+rect.hclust(HClust_Ward_Euc_N_3D, k=2)
+```
+
+```{r}
+##########################
+## k means..............
+######################################
+kmeans_1_Result <- kmeans(Record_DF, 2, nstart=25)   
+
+kmeans_1_Result$centers  
+
+aggregate(Record_DF, 
+          by=list(cluster=kmeans_1_Result$cluster), mean)
+
+## Visualize the clusters
+fviz_cluster(kmeans_1_Result, Record_DF, main="K means - Euclidean", geom="point")
+
+## This is the size (the number of points in) each cluster
+# Cluster size
+kmeans_1_Result$size
+
+```
+
+```{r}
+##########################
+## k means..............
+######################################
+My_Kmeans_2<-Kmeans(Record_DF_Norm, centers=2 ,method = "spearman")
+fviz_cluster(My_Kmeans_2, Record_DF, main="Spearman")
+kmeans_2_Result <- kmeans(Record_DF, 2, nstart=25)   
+```
